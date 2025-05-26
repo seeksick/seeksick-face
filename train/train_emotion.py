@@ -83,8 +83,7 @@ for epoch in range(EPOCHS):
 # ====================
 # 6. 모델 저장
 # ====================
-timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-save_path = f"checkpoints/emotion_resnet18_{timestamp}.pth"
+save_path = f"checkpoints/emotion_resnet18.pth"
 torch.save(model.state_dict(), save_path)
 
 print("[INFO] 모델 저장 완료")

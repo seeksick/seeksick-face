@@ -18,7 +18,7 @@ emotion_labels = ['행복', '슬픔', '기쁨', '분노', '우울']
 
 # 모델 불러오기
 model = EmotionModel(num_emotions=len(emotion_labels))
-# model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE))  # 실제 학습된 모델 있다면 주석 해제
+model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE))  # 실제 학습된 모델 있다면 주석 해제
 model.to(DEVICE).eval()
 
 # 전처리
@@ -39,6 +39,12 @@ cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
 print("[INFO] 웹캠이 실행되었습니다. 'q'를 눌러 종료하세요.")
 
+# 감정 추출 주기 설정
+timestamp = time.time()
+prediction_interval = 0.5  # 초 단위 (0.5초마다 감정 추론)
+label = ""
+confidence = 0.0
+
 try:
     with torch.no_grad():
         while True:
@@ -49,22 +55,27 @@ try:
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             faces = face_cascade.detectMultiScale(gray, scaleFactor=1.3, minNeighbors=5)
 
+            now = time.time()
+
             for (x, y, w, h) in faces:
                 face = frame[y:y+h, x:x+w]
-                input_tensor = preprocess(face).unsqueeze(0).to(DEVICE)
 
-                output = model(input_tensor)[0].cpu().numpy()  # 소프트맥스 없이 감정 벡터 그대로 사용
+                if now - timestamp >= prediction_interval:
+                    timestamp = now
 
-                # [1] 감정 강도 벡터 출력
-                print(f"[{time.strftime('%H:%M:%S')}]-[감정 벡터] ", end="")
-                for label, score in zip(emotion_labels, output):
-                    print(f"{label}: {score:.2f}", end=" ")
-                print()
+                    input_tensor = preprocess(face).unsqueeze(0).to(DEVICE)
+                    output = model(input_tensor)[0].cpu().numpy()  # 소프트맥스 없이 감정 벡터 그대로 사용
 
-                # [2] 가장 강한 감정 선택 (선택적)
-                label_idx = np.argmax(output)
-                label = emotion_labels[label_idx]
-                confidence = output[label_idx]
+                    # [1] 감정 강도 벡터 출력
+                    print(f"[{time.strftime('%H:%M:%S')}]-[감정 벡터] ", end="")
+                    for label_text, score in zip(emotion_labels, output):
+                        print(f"{label_text}: {score:.2f}", end=" ")
+                    print()
+
+                    # [2] 가장 강한 감정 선택 (선택적)
+                    label_idx = np.argmax(output)
+                    label = emotion_labels[label_idx]
+                    confidence = output[label_idx]
 
                 # 시각화
                 cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
