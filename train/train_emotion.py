@@ -1,4 +1,4 @@
-# train_emotion.py: 예제 데이터 기반 감정 벡터 회귀 학습 코드
+import datetime
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -83,5 +83,8 @@ for epoch in range(EPOCHS):
 # ====================
 # 6. 모델 저장
 # ====================
-torch.save(model.state_dict(), "checkpoints/emotion_resnet18.pth")
+timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+save_path = f"checkpoints/emotion_resnet18_{timestamp}.pth"
+torch.save(model.state_dict(), save_path)
+
 print("[INFO] 모델 저장 완료")
