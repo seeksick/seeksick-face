@@ -56,9 +56,9 @@ try:
                 output = model(input_tensor)[0].cpu().numpy()  # 소프트맥스 없이 감정 벡터 그대로 사용
 
                 # [1] 감정 강도 벡터 출력
-                print(f"[{time.strftime('%H:%M:%S')}] 감정 벡터: ", end="")
+                print(f"[{time.strftime('%H:%M:%S')}] [감정 벡터] ", end="")
                 for label, score in zip(emotion_labels, output):
-                    print(f"{label}: {score:.2f}", end="  ")
+                    print(f"{label}: {score:.2f}", end="\t")
                 print()
 
                 # [2] 가장 강한 감정 선택 (선택적)
