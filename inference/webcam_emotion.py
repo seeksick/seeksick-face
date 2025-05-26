@@ -39,9 +39,6 @@ cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
 print("[INFO] 웹캠이 실행되었습니다. 'q'를 눌러 종료하세요.")
 
-last_prediction_time = 0
-prediction_interval = 0.5  # 초 단위로 감정 추출 간격 설정
-
 try:
     with torch.no_grad():
         while True:
@@ -52,30 +49,24 @@ try:
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             faces = face_cascade.detectMultiScale(gray, scaleFactor=1.3, minNeighbors=5)
 
-            now = time.time()
-            should_predict = now - last_prediction_time >= prediction_interval
-
             for (x, y, w, h) in faces:
                 face = frame[y:y+h, x:x+w]
+                input_tensor = preprocess(face).unsqueeze(0).to(DEVICE)
 
-                if should_predict:
-                    last_prediction_time = now
+                output = model(input_tensor)[0].cpu().numpy()  # 소프트맥스 없이 감정 벡터 그대로 사용
 
-                    input_tensor = preprocess(face).unsqueeze(0).to(DEVICE)
-                    output = model(input_tensor)[0].cpu().numpy()  # 소프트맥스 없이 감정 벡터 그대로 사용
+                # [1] 감정 강도 벡터 출력
+                print(f"[{time.strftime('%H:%M:%S')}]-[감정 벡터] ", end="")
+                for label, score in zip(emotion_labels, output):
+                    print(f"{label}: {score:.2f}", end=" ")
+                print()
 
-                    # [1] 감정 강도 벡터 출력
-                    print(f"[{time.strftime('%H:%M:%S')}]-[감정 벡터] ", end="")
-                    for label, score in zip(emotion_labels, output):
-                        print(f"{label}: {score:.2f}", end=" ")
-                    print()
+                # [2] 가장 강한 감정 선택 (선택적)
+                label_idx = np.argmax(output)
+                label = emotion_labels[label_idx]
+                confidence = output[label_idx]
 
-                    # [2] 가장 강한 감정 선택 (선택적)
-                    label_idx = np.argmax(output)
-                    label = emotion_labels[label_idx]
-                    confidence = output[label_idx]
-
-                # 시각화 (예측 주기 외에는 직전 결과를 계속 표시)
+                # 시각화
                 cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
                 cv2.putText(frame, f"{label} ({confidence:.2f})", (x, y - 10),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2)
