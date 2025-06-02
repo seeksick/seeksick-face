@@ -14,7 +14,7 @@ MODEL_PATH = os.getenv("MODEL_PATH", "checkpoints/emotion_resnet18.pth")
 DEVICE = os.getenv("DEVICE", "cuda" if torch.cuda.is_available() else "cpu")
 
 # 감정 라벨 정의 (5개 감정 강도)
-emotion_labels = ['행복', '슬픔', '기쁨', '분노', '우울']
+emotion_labels = ['행복', '슬픔', '놀람', '분노', '우울']
 
 # 모델 불러오기
 model = EmotionModel(num_emotions=len(emotion_labels))

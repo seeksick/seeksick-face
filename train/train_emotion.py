@@ -3,71 +3,77 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, Dataset
-from torchvision import transforms
-from PIL import Image
-import pandas as pd
+from torchvision import transforms, datasets
 import os
 from models.emotion_model import EmotionModel
 
 # ====================
 # 1. 하이퍼파라미터 및 설정
 # ====================
-DATA_PATH = "data/emotion_labels.csv"
-IMAGE_FOLDER = "data/images"
+DATA_PATH = "data/train"
 EPOCHS = 10
-BATCH_SIZE = 8
+BATCH_SIZE = 32
 LR = 1e-4
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # ====================
-# 2. 데이터셋 정의
+# 2. 전처리 및 데이터 로더 (5개 감정 필터링)
 # ====================
-class EmotionDataset(Dataset):
-    def __init__(self, csv_file, image_folder, transform=None):
-        self.data = pd.read_csv(csv_file)
-        self.image_folder = image_folder
-        self.transform = transform
+selected_classes = ['happy', 'sad', 'surprise', 'angry', 'fear']
+class_name_map = {
+    'happy': '행복',
+    'sad': '슬픔',
+    'surprise': '놀람',
+    'angry': '분노',
+    'fear': '우울'
+}
+class_to_new_index = {cls: i for i, cls in enumerate(selected_classes)}
 
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, idx):
-        img_path = os.path.join(self.image_folder, self.data.iloc[idx]['image'])
-        image = Image.open(img_path).convert('RGB')
-        label = torch.tensor(eval(self.data.iloc[idx]['label']), dtype=torch.float32)
-
-        if self.transform:
-            image = self.transform(image)
-
-        return image, label
-
-# ====================
-# 3. 전처리 및 데이터 로더
-# ====================
 transform = transforms.Compose([
-    transforms.Resize((224, 224)),
+    transforms.Resize((48, 48)),
     transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                         std=[0.229, 0.224, 0.225])
+    transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
 ])
 
-dataset = EmotionDataset(DATA_PATH, IMAGE_FOLDER, transform=transform)
-dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)
+all_dataset = datasets.ImageFolder(root=DATA_PATH, transform=transform)
+
+selected_indices = [i for i, (_, label) in enumerate(all_dataset.samples)
+                    if all_dataset.classes[label] in selected_classes]
+
+class RemappedSubset(Dataset):
+    def __init__(self, base_dataset, indices, class_map):
+        self.base_dataset = base_dataset
+        self.indices = indices
+        self.class_map = class_map
+        self.class_to_idx = class_map
+
+    def __len__(self):
+        return len(self.indices)
+
+    def __getitem__(self, idx):
+        real_idx = self.indices[idx]
+        image, original_label = self.base_dataset[real_idx]
+        class_name = self.base_dataset.classes[original_label]
+        new_label = self.class_map[class_name]
+        return image, new_label
+
+train_dataset = RemappedSubset(all_dataset, selected_indices, class_to_new_index)
+train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
 
 # ====================
-# 4. 모델 및 학습 설정
+# 3. 모델 및 학습 설정
 # ====================
 model = EmotionModel(num_emotions=5).to(DEVICE)
-criterion = nn.MSELoss()
+criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=LR)
 
 # ====================
-# 5. 학습 루프
+# 4. 학습 루프
 # ====================
 model.train()
 for epoch in range(EPOCHS):
     total_loss = 0.0
-    for images, labels in dataloader:
+    for batch_idx, (images, labels) in enumerate(train_loader):
         images, labels = images.to(DEVICE), labels.to(DEVICE)
 
         optimizer.zero_grad()
@@ -78,12 +84,17 @@ for epoch in range(EPOCHS):
 
         total_loss += loss.item()
 
-    print(f"Epoch [{epoch+1}/{EPOCHS}] Loss: {total_loss/len(dataloader):.4f}")
+        # 미니배치 단위 출력 (선택)
+        print(f"  [Epoch {epoch+1}][Batch {batch_idx+1}/{len(train_loader)}] Batch Loss: {loss.item():.4f}")
+
+    avg_loss = total_loss / len(train_loader)
+    print(f">>> Epoch [{epoch+1}/{EPOCHS}] 완료 - 평균 Loss: {avg_loss:.4f}")
 
 # ====================
-# 6. 모델 저장
+# 5. 모델 저장
 # ====================
-save_path = f"checkpoints/emotion_resnet18.pth"
+timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+save_path = f"checkpoints/emotion_resnet18_5class_{timestamp}.pth"
 torch.save(model.state_dict(), save_path)
 
-print("[INFO] 모델 저장 완료")
+print(f"[INFO] 모델 저장 완료: {save_path}")
