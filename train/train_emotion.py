@@ -17,15 +17,15 @@ LR = 1e-4
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # ====================
-# 2. 전처리 및 데이터 로더 (5개 감정 필터링)
+# 2. 전처리 및 데이터 로더 (5개 감정 필터링) [ 행복, 우울, 놀람, 분노, 중립 ]
 # ====================
-selected_classes = ['happy', 'sad', 'surprise', 'angry', 'fear']
+selected_classes = ['happy', 'sad', 'surprise', 'angry', 'neutral']
 class_name_map = {
     'happy': '행복',
-    'sad': '슬픔',
+    'sad': '우울',
     'surprise': '놀람',
     'angry': '분노',
-    'fear': '우울'
+    'neutral': '중립'
 }
 class_to_new_index = {cls: i for i, cls in enumerate(selected_classes)}
 
