@@ -4,7 +4,7 @@
 
 emotion_recognition/
 ├── data/
-│   └── # (선택) 감정 인식 학습용 데이터셋
+│   └── # 감정 인식 학습용 데이터셋
 ├── checkpoints/
 │   └── # 학습된 모델 저장 위치
 ├── models/
