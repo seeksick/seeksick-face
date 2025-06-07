@@ -70,6 +70,15 @@ test_loss = 0.0
 correct = 0
 total = 0
 
+idx_to_class = {v: k for k, v in class_to_idx.items()}
+emotion_kor_map = {
+    'happy': '행복',
+    'sad': '우울',
+    'surprise': '놀람',
+    'angry': '분노',
+    'neutral': '중립'
+}
+
 with torch.no_grad():
     for images, labels in test_loader:
         images, labels = images.to(DEVICE), labels.to(DEVICE)
@@ -77,11 +86,24 @@ with torch.no_grad():
         loss = criterion(outputs, labels)
         test_loss += loss.item()
 
+        # 예측 클래스
         _, predicted = torch.max(outputs, 1)
         correct += (predicted == labels).sum().item()
         total += labels.size(0)
 
+        # 예측 확률 벡터 출력
+        probs = torch.softmax(outputs, dim=1).cpu()
+        labels = labels.cpu()
+        for i in range(images.size(0)):
+            folder_name = idx_to_class[labels[i].item()]
+            prob_vec = probs[i].tolist()
+            prob_str = ', '.join(
+                [f"{emotion_kor_map[selected_classes[j]]}: {prob_vec[j]:.3f}" for j in range(5)]
+            )
+            print(f"[{emotion_kor_map[folder_name]}] [{prob_str}]")
+
+# 최종 결과
 avg_loss = test_loss / len(test_loader)
 accuracy = correct / total * 100
 
-print(f"[Test] Accuracy: {accuracy:.2f}% | Loss: {avg_loss:.4f}")
+print(f"\n[Test] Accuracy: {accuracy:.2f}% | Loss: {avg_loss:.4f}")
