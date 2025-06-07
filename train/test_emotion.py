@@ -4,14 +4,14 @@ from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 import os
 import csv
-import re
 from models.emotion_model import EmotionModel
 
 # ====================
 # 1. 설정
 # ====================
 DATA_PATH = "data/test"
-CHECKPOINT_PATH = "checkpoints/emotion_resnet18_5class_20250607_153158.pth"  # 최신 모델 경로로 수정
+CHECKPOINT_PATH = "checkpoints/emotion_resnet18_5class_20250607_161531.pth"  # 최근 생성 모델로 교체
+CSV_PATH = "checkpoints/emotion_predictions_latest.csv"  # 항상 고정
 BATCH_SIZE = 32
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -59,7 +59,6 @@ class RemappedSubset(torch.utils.data.Dataset):
         new_label = self.class_map[class_name]
         return image, new_label
 
-# 데이터로더 생성
 test_dataset = RemappedSubset(all_dataset, selected_indices, class_to_idx)
 test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
@@ -72,19 +71,12 @@ model.eval()
 criterion = nn.CrossEntropyLoss()
 
 # ====================
-# 5. 평가 및 결과 저장
+# 5. 평가 및 CSV 저장
 # ====================
-# 타임스탬프 추출
-filename = os.path.basename(CHECKPOINT_PATH)
-match = re.search(r'_(\d{8}_\d{6})\.pth', filename)
-timestamp = match.group(1) if match else "result"
-csv_path = f"checkpoints/emotion_result_{timestamp}.csv"
-
-# CSV 기록용 리스트
-csv_rows = []
 test_loss = 0.0
 correct = 0
 total = 0
+csv_rows = []
 
 with torch.no_grad():
     for images, labels in test_loader:
@@ -121,13 +113,16 @@ with torch.no_grad():
             csv_rows.append(row)
 
 # CSV로 저장
-with open(csv_path, mode='w', newline='', encoding='utf-8') as f:
+os.makedirs("checkpoints", exist_ok=True)
+with open(CSV_PATH, mode='w', newline='', encoding='utf-8') as f:
     writer = csv.DictWriter(f, fieldnames=["TrueLabel", "행복", "우울", "놀람", "분노", "중립"])
     writer.writeheader()
     writer.writerows(csv_rows)
 
-# 최종 결과 출력
+# ====================
+# 6. 최종 결과
+# ====================
 avg_loss = test_loss / len(test_loader)
 accuracy = correct / total * 100
 print(f"\n[Test] Accuracy: {accuracy:.2f}% | Loss: {avg_loss:.4f}")
-print(f"[INFO] 결과 CSV 저장 완료: {csv_path}")
+print(f"[INFO] 결과 CSV 저장 완료: {CSV_PATH}")
