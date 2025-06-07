@@ -11,7 +11,7 @@ from models.emotion_model import EmotionModel
 # 1. 하이퍼파라미터 및 설정
 # ====================
 DATA_PATH = "data/train"
-EPOCHS = 10
+EPOCHS = 20
 BATCH_SIZE = 32
 LR = 1e-4
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
