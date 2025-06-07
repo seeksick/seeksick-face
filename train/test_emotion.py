@@ -3,6 +3,8 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 import os
+import csv
+import re
 from models.emotion_model import EmotionModel
 
 # ====================
@@ -18,6 +20,14 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # ====================
 selected_classes = ['happy', 'sad', 'surprise', 'angry', 'neutral']
 class_to_idx = {cls: i for i, cls in enumerate(selected_classes)}
+idx_to_class = {v: k for k, v in class_to_idx.items()}
+emotion_kor_map = {
+    'happy': '행복',
+    'sad': '우울',
+    'surprise': '놀람',
+    'angry': '분노',
+    'neutral': '중립'
+}
 
 # ====================
 # 3. 전처리 및 데이터셋
@@ -29,8 +39,6 @@ transform = transforms.Compose([
 ])
 
 all_dataset = datasets.ImageFolder(root=DATA_PATH, transform=transform)
-
-# 선택 클래스만 필터링
 selected_indices = [i for i, (_, label) in enumerate(all_dataset.samples)
                     if all_dataset.classes[label] in selected_classes]
 
@@ -51,6 +59,7 @@ class RemappedSubset(torch.utils.data.Dataset):
         new_label = self.class_map[class_name]
         return image, new_label
 
+# 데이터로더 생성
 test_dataset = RemappedSubset(all_dataset, selected_indices, class_to_idx)
 test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
@@ -60,24 +69,22 @@ test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False)
 model = EmotionModel(num_emotions=5).to(DEVICE)
 model.load_state_dict(torch.load(CHECKPOINT_PATH, map_location=DEVICE))
 model.eval()
-
 criterion = nn.CrossEntropyLoss()
 
 # ====================
-# 5. 평가
+# 5. 평가 및 결과 저장
 # ====================
+# 타임스탬프 추출
+filename = os.path.basename(CHECKPOINT_PATH)
+match = re.search(r'_(\d{8}_\d{6})\.pth', filename)
+timestamp = match.group(1) if match else "result"
+csv_path = f"checkpoints/emotion_result_{timestamp}.csv"
+
+# CSV 기록용 리스트
+csv_rows = []
 test_loss = 0.0
 correct = 0
 total = 0
-
-idx_to_class = {v: k for k, v in class_to_idx.items()}
-emotion_kor_map = {
-    'happy': '행복',
-    'sad': '우울',
-    'surprise': '놀람',
-    'angry': '분노',
-    'neutral': '중립'
-}
 
 with torch.no_grad():
     for images, labels in test_loader:
@@ -86,24 +93,41 @@ with torch.no_grad():
         loss = criterion(outputs, labels)
         test_loss += loss.item()
 
-        # 예측 클래스
-        _, predicted = torch.max(outputs, 1)
+        probs = torch.softmax(outputs, dim=1).cpu()
+        labels = labels.cpu()
+        predicted = torch.argmax(probs, dim=1)
         correct += (predicted == labels).sum().item()
         total += labels.size(0)
 
-        # 예측 확률 벡터 출력
-        probs = torch.softmax(outputs, dim=1).cpu()
-        labels = labels.cpu()
         for i in range(images.size(0)):
-            folder_name = idx_to_class[labels[i].item()]
+            true_label_idx = labels[i].item()
+            true_label_eng = idx_to_class[true_label_idx]
+            true_label_kor = emotion_kor_map[true_label_eng]
+
             prob_vec = probs[i].tolist()
             prob_str = ', '.join(
                 [f"{emotion_kor_map[selected_classes[j]]}: {prob_vec[j]:.3f}" for j in range(5)]
             )
-            print(f"[{emotion_kor_map[folder_name]}] [{prob_str}]")
+            print(f"[{true_label_kor}] [{prob_str}]")
 
-# 최종 결과
+            row = {
+                "TrueLabel": true_label_kor,
+                "행복": round(prob_vec[0], 3),
+                "우울": round(prob_vec[1], 3),
+                "놀람": round(prob_vec[2], 3),
+                "분노": round(prob_vec[3], 3),
+                "중립": round(prob_vec[4], 3)
+            }
+            csv_rows.append(row)
+
+# CSV로 저장
+with open(csv_path, mode='w', newline='', encoding='utf-8') as f:
+    writer = csv.DictWriter(f, fieldnames=["TrueLabel", "행복", "우울", "놀람", "분노", "중립"])
+    writer.writeheader()
+    writer.writerows(csv_rows)
+
+# 최종 결과 출력
 avg_loss = test_loss / len(test_loader)
 accuracy = correct / total * 100
-
 print(f"\n[Test] Accuracy: {accuracy:.2f}% | Loss: {avg_loss:.4f}")
+print(f"[INFO] 결과 CSV 저장 완료: {csv_path}")
