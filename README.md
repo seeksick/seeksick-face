@@ -1,7 +1,6 @@
 # seeksick-face
 
-```python
-
+```sh
 emotion_recognition/
 ├── data/
 │   └── # 감정 인식 학습용 데이터셋
@@ -21,7 +20,7 @@ emotion_recognition/
 
 ```
 
-```
+```sh
 1. clone repository
 $ git clone https://github.com/seeksick/seeksick-face.git
 $ cd seeksick-face
