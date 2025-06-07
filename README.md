@@ -20,3 +20,32 @@ emotion_recognition/
 └── README.md        # 프로젝트 설명 및 실행 방법
 
 ```
+
+```
+1. clone repository
+$ git clone https://github.com/seeksick/seeksick-face.git
+$ cd seeksick-face
+
+2. 가상환경 생성 및 활성화
+(for linux)
+$ python3 -m venv .venv
+$ source .venv/bin/activate
+
+(for win)
+$ python -m venv .venv
+$ .venv\Scripts\activate
+
+3. install required libraries
+$ pip install -r requirements.txt
+
+4. 학습 실행
+$ $env:PYTHONPATH="."; python train/train_emotion.py
+
+5. 테스트 실행
+$ $env:PYTHONPATH="."; python test/test_emotion.py
+
+7. 학습 결과
+- checkpoints/ 폴더에 .pth 파일이 생성됨
+- test 실행 시 감정별 확률 출력 + 정확도 / 손실값 표시
+
+```
