@@ -97,11 +97,6 @@ with torch.no_grad():
             true_label_kor = emotion_kor_map[true_label_eng]
 
             prob_vec = probs[i].tolist()
-            prob_str = ', '.join(
-                [f"{emotion_kor_map[selected_classes[j]]}: {prob_vec[j]:.3f}" for j in range(5)]
-            )
-            print(f"[{true_label_kor}] [{prob_str}]")
-
             row = {
                 "TrueLabel": true_label_kor,
                 "행복": round(prob_vec[0], 3),
