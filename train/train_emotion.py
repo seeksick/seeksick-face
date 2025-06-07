@@ -85,7 +85,7 @@ for epoch in range(EPOCHS):
         total_loss += loss.item()
 
         # 미니배치 단위 출력 (선택)
-        print(f"  [Epoch {epoch+1}][Batch {batch_idx+1}/{len(train_loader)}] Batch Loss: {loss.item():.4f}")
+        # print(f"  [Epoch {epoch+1}][Batch {batch_idx+1}/{len(train_loader)}] Batch Loss: {loss.item():.4f}")
 
     avg_loss = total_loss / len(train_loader)
     print(f">>> Epoch [{epoch+1}/{EPOCHS}] 완료 - 평균 Loss: {avg_loss:.4f}")
@@ -95,6 +95,9 @@ for epoch in range(EPOCHS):
 # ====================
 timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 save_path = f"checkpoints/emotion_resnet18_5class_{timestamp}.pth"
-torch.save(model.state_dict(), save_path)
 
+os.makedirs("checkpoints", exist_ok=True)
+torch.save(model.state_dict(), save_path)
 print(f"[INFO] 모델 저장 완료: {save_path}")
+
+# $env:PYTHONPATH="."; python train/train_emotion.py
