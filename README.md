@@ -31,8 +31,10 @@ $ python3 -m venv .venv
 $ source .venv/bin/activate
 
 (for win)
-$ python -m venv .venv
-$ .venv\Scripts\activate
+$ .\micromamba.exe create -n faceenv python=3.10
+$ .\micromamba.exe activate faceenv
+$ micromamba install pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia
+$ micromamba install opencv numpy pillow python-dotenv pandas -c conda-forge
 
 3. install required libraries
 $ pip install -r requirements.txt
