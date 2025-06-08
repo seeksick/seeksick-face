@@ -121,3 +121,5 @@ avg_loss = test_loss / len(test_loader)
 accuracy = correct / total * 100
 print(f"\n[Test] Accuracy: {accuracy:.2f}% | Loss: {avg_loss:.4f}")
 print(f"[INFO] 결과 CSV 저장 완료: {CSV_PATH}")
+
+# $env:PYTHONPATH="."; python train/test_emotion.py
