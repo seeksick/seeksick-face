@@ -30,13 +30,12 @@ preprocess = transforms.Compose([
     transforms.ToPILImage(),
     transforms.Resize((224, 224), interpolation=transforms.InterpolationMode.BICUBIC),
     transforms.ToTensor(),
-    transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
+    transforms.Normalize(mean=[0.5]*3, std=[0.5]*3)
 ])
 
 # ====================
-# 4. 얼굴 검출기 및 웹캠 실행
+# 4. 웹캠 시작
 # ====================
-face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 cap = cv2.VideoCapture(0)
 print("[INFO] 웹캠이 실행되었습니다. 'q'를 눌러 종료하세요.")
 
@@ -47,44 +46,51 @@ try:
             if not ret:
                 break
 
-            # --- 전체 프레임에 격자 오버레이 ---
-            grid_step = 28
-            for i in range(0, frame.shape[1], grid_step):  # 세로줄
-                cv2.line(frame, (i, 0), (i, frame.shape[0]), (100, 100, 100), 1)
-            for i in range(0, frame.shape[0], grid_step):  # 가로줄
-                cv2.line(frame, (0, i), (frame.shape[1], i), (100, 100, 100), 1)
+            # --- 타원 중심 및 마스크 생성 ---
+            frame_copy = frame.copy()
+            blurred = cv2.GaussianBlur(frame_copy, (31, 31), 0)
+            mask = np.zeros_like(frame, dtype=np.uint8)
+            h, w = frame.shape[:2]
+            center_x, center_y = w // 2, h // 2
+            axes = (400, 350)  # 타원 크기 확대
 
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            faces = face_cascade.detectMultiScale(gray, scaleFactor=1.3, minNeighbors=5)
+            # 타원 마스크 및 반전
+            cv2.ellipse(mask, (center_x, center_y), axes, 0, 0, 360, (255, 255, 255), -1)
+            mask_inv = cv2.bitwise_not(mask)
 
-            for (x, y, w, h) in faces:
-                face = frame[y:y+h, x:x+w]
-                resized_face = cv2.resize(face, (224, 224))
+            # 영역 분리
+            face_area = cv2.bitwise_and(frame, mask)
+            blurred_area = cv2.bitwise_and(blurred, mask_inv)
+            combined = cv2.add(face_area, blurred_area)
 
-                # 감정 추론
-                input_tensor = preprocess(resized_face).unsqueeze(0).to(DEVICE)
+            # 얼굴 분석 영역 잘라내기
+            x1, y1 = center_x - axes[0], center_y - axes[1]
+            x2, y2 = center_x + axes[0], center_y + axes[1]
+            ellipse_roi = face_area[y1:y2, x1:x2]
+
+            if ellipse_roi.shape[0] > 0 and ellipse_roi.shape[1] > 0:
+                input_tensor = preprocess(ellipse_roi).unsqueeze(0).to(DEVICE)
                 logits = model(input_tensor)[0].cpu()
                 probs = F.softmax(logits, dim=0).numpy()
 
-                # 감정 벡터 출력
+                # 콘솔 출력
                 print(f"[{time.strftime('%H:%M:%S')}] 감정 벡터:", end=" ")
                 for i, score in enumerate(probs):
                     print(f"{emotion_labels[i]}: {score:.2f}", end=" ")
                 print()
 
-                # 감정 시각화
+                # 시각화 라벨 표시
                 label_idx = np.argmax(probs)
                 label = emotion_labels[label_idx]
                 confidence = probs[label_idx]
-
-                cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
-                cv2.putText(frame, f"{label} ({confidence:.2f})", (x, y - 10),
+                cv2.putText(combined, f"{label} ({confidence:.2f})", (x1, y1 - 10),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2)
 
-                # 얼굴 별도 보기
-                cv2.imshow("Face 224x224", resized_face)
+            # 흰색 타원 표시 (두께 3)
+            cv2.ellipse(combined, (center_x, center_y), axes, 0, 0, 360, (255, 255, 255), 3)
 
-            cv2.imshow("Emotion Detection", frame)
+            # 출력
+            cv2.imshow("Emotion Detection", combined)
 
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
