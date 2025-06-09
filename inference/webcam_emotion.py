@@ -52,7 +52,7 @@ try:
             mask = np.zeros_like(frame, dtype=np.uint8)
             h, w = frame.shape[:2]
             center_x, center_y = w // 2, h // 2
-            axes = (400, 350)  # 타원 크기 확대
+            axes = (450, 400)  # 타원 크기 확대
 
             # 타원 마스크 및 반전
             cv2.ellipse(mask, (center_x, center_y), axes, 0, 0, 360, (255, 255, 255), -1)

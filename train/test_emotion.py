@@ -4,19 +4,20 @@ from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 import os
 import csv
+from sklearn.metrics import f1_score, classification_report
 from models.emotion_model import EmotionModel
 
 # ====================
 # 1. 설정
 # ====================
 DATA_PATH = "data/test"
-CHECKPOINT_PATH = "checkpoints/emotion_resnet18_5class_20250607_161531.pth"  # 최근 생성 모델로 교체
-CSV_PATH = "checkpoints/emotion_predictions_latest.csv"  # 항상 고정
+CHECKPOINT_PATH = "checkpoints/emotion_resnet18_5class_20250608_170626.pth"  # 최근 모델
+CSV_PATH = "checkpoints/emotion_predictions_latest.csv"
 BATCH_SIZE = 32
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # ====================
-# 2. 감정 클래스 (5개 감정 기준)
+# 2. 감정 클래스
 # ====================
 selected_classes = ['happy', 'sad', 'surprise', 'angry', 'neutral']
 class_to_idx = {cls: i for i, cls in enumerate(selected_classes)}
@@ -77,6 +78,8 @@ test_loss = 0.0
 correct = 0
 total = 0
 csv_rows = []
+all_preds = []
+all_labels = []
 
 with torch.no_grad():
     for images, labels in test_loader:
@@ -90,6 +93,9 @@ with torch.no_grad():
         predicted = torch.argmax(probs, dim=1)
         correct += (predicted == labels).sum().item()
         total += labels.size(0)
+
+        all_preds.extend(predicted.tolist())
+        all_labels.extend(labels.tolist())
 
         for i in range(images.size(0)):
             true_label_idx = labels[i].item()
@@ -107,7 +113,7 @@ with torch.no_grad():
             }
             csv_rows.append(row)
 
-# CSV로 저장
+# CSV 저장
 os.makedirs("checkpoints", exist_ok=True)
 with open(CSV_PATH, mode='w', newline='', encoding='utf-8') as f:
     writer = csv.DictWriter(f, fieldnames=["TrueLabel", "행복", "우울", "놀람", "분노", "중립"])
@@ -115,11 +121,14 @@ with open(CSV_PATH, mode='w', newline='', encoding='utf-8') as f:
     writer.writerows(csv_rows)
 
 # ====================
-# 6. 최종 결과
+# 6. 최종 결과 출력
 # ====================
 avg_loss = test_loss / len(test_loader)
 accuracy = correct / total * 100
-print(f"\n[Test] Accuracy: {accuracy:.2f}% | Loss: {avg_loss:.4f}")
-print(f"[INFO] 결과 CSV 저장 완료: {CSV_PATH}")
+macro_f1 = f1_score(all_labels, all_preds, average='macro')
 
-# $env:PYTHONPATH="."; python train/test_emotion.py
+print(f"\n[Test] Accuracy: {accuracy:.2f}% | Loss: {avg_loss:.4f} | Macro F1: {macro_f1:.4f}")
+print(f"[INFO] 결과 CSV 저장 완료: {CSV_PATH}\n")
+
+print("[클래스별 F1 스코어]")
+print(classification_report(all_labels, all_preds, target_names=selected_classes, digits=3))
